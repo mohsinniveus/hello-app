@@ -18,6 +18,6 @@ spec:
     spec:
       containers:
       - name: hello-app
-        image: gcr.io/niveusanthos/hello-app:latest
+        image: gcr.io/niveusanthos/hello-app:$SHORT_SHA
         ports:
         - containerPort: 8080
