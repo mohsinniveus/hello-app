@@ -11,13 +11,12 @@ steps:
     args:
       - 'push'
       - 'gcr.io/$PROJECT_ID/hello-app:latest'
-  - id: 'create-attestation'
-    name: 'gcr.io/${PROJECT_ID}/binauthz-attestation:latest'
+  - name: gcr.io/$PROJECT_ID/cloudbuild-attestor
+    id: 'Check Vulnerability Scan results'
+    entrypoint: 'sh'
     args:
-      - '--artifact-url'
-      - 'gcr.io/$PROJECT_ID/hello-app:latest'
-      - '--attestor'
-      - 'projects/$PROJECT_ID/attestors/${ATTESTOR_NAME}'
-      - '--keyversion'
-      - 'projects/${PROJECT_ID}/locations/${KMS_KEY_LOCATION}/keyRings/${KMS_KEYRING_NAME}/cryptoKeys/${KMS_KEY_NAME}/cryptoKeyVersions/${KMS_KEY_VERSION}'
+      - -xe
+      - -c
+      - |
+         /scripts/check_vulnerabilities.sh -p $PROJECT_ID -i gcr.io/$PROJECT_ID/hello-app:latest -t 5
 tags: ['cloud-builders-community']
