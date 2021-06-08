@@ -35,4 +35,19 @@ steps:
             -k "$_VULNZ_KMS_KEY" \
             -l "$_KMS_LOCATION" \
             -r "$_KMS_KEYRING"
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'Generate Kubernetes manifest'
+    entrypoint: /bin/sh
+    args:
+      - '-c'
+      - |-
+          DIGEST=$(gcloud container images describe --format 'value(image_summary.digest)' gcr.io/$PROJECT_ID/hello-app:latest)
+          sed "s/GOOGLE_CLOUD_PROJECT/${PROJECT_ID}/g" kubernetes/deployment.yaml.tpl | \
+          sed "s/DIGEST/$${DIGEST}/g" > kubernetes/deployment.yaml
+  - name: 'gcr.io/cloud-builders/kubectl'
+    id: 'Deploy to staging'
+    args: ['apply', '-f', 'kubernetes/']
+    env:
+      - 'CLOUDSDK_COMPUTE_REGION=$_COMPUTE_REGION'
+      - 'CLOUDSDK_CONTAINER_CLUSTER=$_STAGING_CLUSTER'
 tags: ['cloud-builders-community']
