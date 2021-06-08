@@ -50,4 +50,65 @@ steps:
     env:
       - 'CLOUDSDK_COMPUTE_REGION=$_COMPUTE_REGION'
       - 'CLOUDSDK_CONTAINER_CLUSTER=$_STAGING_CLUSTER'
+  
+  # Clear the context - this is required until new gcloud and kubectl builders are
+  # published which fix the caching bug.
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'Clear staging context'
+    entrypoint: '/bin/bash'
+    args: ['-c', 'rm -rf ~/.config/gcloud ~/.kube']
+
+  # This effectively pauses the build for up to 500s until the QA attestion is
+  # applied.
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'Await QA attestation'
+    entrypoint: /bin/sh
+    timeout: 500s
+    args:
+      - '-e'
+      - '-c'
+      - |-
+          FULLY_QUALIFIED_IMAGE=$(gcloud container images describe --format 'value(image_summary.fully_qualified_digest)' gcr.io/$PROJECT_ID/hello-app:$SHORT_SHA)
+
+          cat <<EOF
+          Waiting for QA attestation... Attest the image with the following command:
+
+          gcloud beta container binauthz attestations sign-and-create \
+            --project "$PROJECT_ID" \
+            --artifact-url "$${FULLY_QUALIFIED_IMAGE}" \
+            --attestor "$_QA_ATTESTOR" \
+            --attestor-project "$PROJECT_ID" \
+            --keyversion "$_QA_KMS_KEY_VERSION" \
+            --keyversion-key "$_QA_KMS_KEY" \
+            --keyversion-location "$_KMS_LOCATION" \
+            --keyversion-keyring "$_KMS_KEYRING" \
+            --keyversion-project "$PROJECT_ID"
+
+          EOF
+
+          until gcloud beta container binauthz attestations list \
+            --project "$PROJECT_ID" \
+            --attestor "$_QA_ATTESTOR" \
+            --attestor-project "$PROJECT_ID" \
+            --artifact-url "$${FULLY_QUALIFIED_IMAGE}" \
+            2>&1 \
+            | grep -q "$_QA_KMS_KEY"
+          do
+            echo "Awaiting attestation..."
+            sleep 10
+          done
+
+  - name: 'gcr.io/cloud-builders/kubectl'
+    id: 'Deploy to production'
+    args: ['apply', '-f', 'kubernetes/']
+    env:
+    - 'CLOUDSDK_COMPUTE_REGION=$_COMPUTE_REGION'
+    - 'CLOUDSDK_CONTAINER_CLUSTER=$_PROD_CLUSTER'
+
+  # Clear the context - this is required until new gcloud and kubectl builders are
+  # published which fix the caching bug.
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'Clear production context'
+    entrypoint: '/bin/bash'
+    args: ['-c', 'rm -rf ~/.config/gcloud ~/.kube']    
 tags: ['cloud-builders-community']
