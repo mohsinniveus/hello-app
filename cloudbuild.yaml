@@ -1,0 +1,23 @@
+steps:
+  - id: 'build'
+    name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/hello-app:latest'
+      - '.'
+  - id: 'publish'
+    name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/hello-app:latest'
+  - id: 'create-attestation'
+    name: 'gcr.io/${PROJECT_ID}/binauthz-attestation:latest'
+    args:
+      - '--artifact-url'
+      - 'gcr.io/$PROJECT_ID/hello-app:latest'
+      - '--attestor'
+      - 'projects/$PROJECT_ID/attestors/${ATTESTOR_NAME}'
+      - '--keyversion'
+      - 'projects/${PROJECT_ID}/locations/${KMS_KEY_LOCATION}/keyRings/${KMS_KEYRING_NAME}/cryptoKeys/${KMS_KEY_NAME}/cryptoKeyVersions/${KMS_KEY_VERSION}'
+tags: ['cloud-builders-community']
